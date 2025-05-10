@@ -19,6 +19,7 @@ from sympy.parsing.sympy_parser import (
     convert_xor
 )
 import logging
+import re
 
 # Logger configuration
 logging.basicConfig(
@@ -90,21 +91,24 @@ class MathBot:
             results = []
             for line in user_input.split('\n'):
                 line = line.strip()
-                if line:  # فقط خطوط غیرخالی را پردازش کن
-                    result = self._process_single_expression(line)
-                    results.append(f"`{line}` = `{result}`")
+                if line:
+                    try:
+                        result = self._process_single_expression(line)
+                        results.append(f"`{line}` = `{result}`")
+                    except Exception as e:
+                        results.append(f"`{line}` ❌ خطا: `{str(e)}`")
             
-            response = "✅ نتایج:\n" + "\n\n".join(results)
+            response = "📝 نتایج:\n" + "\n\n".join(results)
         except Exception as e:
             logger.error(f"Error processing {user_input}: {str(e)}")
-            response = f"❌ خطا:\n`{str(e)}`"
+            response = f"❌ خطای کلی:\n`{str(e)}`"
         
         await update.message.reply_text(response, parse_mode="Markdown")
 
     def _process_single_expression(self, expr: str) -> str:
         """Process a single mathematical expression"""
-        # جایگزینی ^ با ** برای پشتیبانی از هر دو فرمت توان
-        expr = expr.replace('^', '**')
+        # تبدیل ^ به ** و رفع فاصله‌های نامناسب
+        expr = self._preprocess_expression(expr)
         
         parsed_expr = parse_expr(
             expr,
@@ -118,10 +122,18 @@ class MathBot:
         if hasattr(parsed_expr, 'is_number') and parsed_expr.is_number:
             return str(parsed_expr.evalf(chop=True))
             
-        if isinstance(parsed_expr, list):  # برای نتایج solve که لیست برمی‌گرداند
+        if isinstance(parsed_expr, list):
             return pretty(parsed_expr, use_unicode=True)
             
         return pretty(parsed_expr.doit(), use_unicode=True)
+
+    def _preprocess_expression(self, expr: str) -> str:
+        """Preprocess the expression before parsing"""
+        # جایگزینی ^ با **
+        expr = expr.replace('^', '**')
+        # حذف فاصله‌های اضافی حول عملگرها
+        expr = re.sub(r'\s*([+\-*/])\s*', r' \1 ', expr)
+        return expr.strip()
 
 if __name__ == "__main__":
     bot = MathBot("7868707058:AAFpFiUUMfbNekf4_Ct2cT_v3wfdu7lL-JQ")
