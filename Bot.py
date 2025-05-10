@@ -10,7 +10,7 @@ from telegram.ext import (
 from sympy import (
     symbols, diff, integrate, solve, simplify, expand, factor, limit,
     sin, cos, tan, sqrt, log, exp, pi, E, I, oo, Matrix, det, Sum,
-    Product, factorial, binomial, Abs, re, im, series, pretty
+    Product, factorial, binomial, Abs, re, im, series, pretty, Eq, N
 )
 from sympy.parsing.sympy_parser import (
     parse_expr,
@@ -39,31 +39,18 @@ class MathBot:
 
     def _create_safe_dict(self) -> dict:
         """Create a safe environment for mathematical operations"""
-        # تغییر نام متغیر برای جلوگیری از تداخل
         sym_x, sym_y, sym_z = symbols('x y z')
         
         return {
-            'x': sym_x,
-            'y': sym_y,
-            'z': sym_z,
-            'pi': pi,
-            'E': E,
-            'I': I,
-            'oo': oo,
-            'diff': diff,
-            'integrate': integrate,
-            'solve': solve,
-            'simplify': simplify,
-            'expand': expand,
-            'factor': factor,
-            'limit': limit,
-            'series': series,
-            'sin': sin, 'cos': cos, 'tan': tan,
-            'sqrt': sqrt, 'log': log, 'exp': exp,
-            'Matrix': Matrix, 'det': det,
-            'Sum': Sum, 'Product': Product,
-            'factorial': factorial, 'binomial': binomial,
-            'Abs': Abs, 're': re, 'im': im
+            'x': sym_x, 'y': sym_y, 'z': sym_z,
+            'pi': pi, 'E': E, 'I': I, 'oo': oo,
+            'diff': diff, 'integrate': integrate, 'solve': solve,
+            'simplify': simplify, 'expand': expand, 'factor': factor,
+            'limit': limit, 'series': series, 'Eq': Eq, 'N': N,
+            'sin': sin, 'cos': cos, 'tan': tan, 'sqrt': sqrt,
+            'log': log, 'exp': exp, 'Matrix': Matrix, 'det': det,
+            'Sum': Sum, 'Product': Product, 'factorial': factorial,
+            'binomial': binomial, 'Abs': Abs, 're': re, 'im': im
         }
 
     def _setup_handlers(self):
@@ -85,7 +72,8 @@ class MathBot:
             "- حل معادله: solve(x**2 - 4, x)\n"
             "- ساده‌سازی: simplify((x**2 - 1)/(x - 1))\n"
             "- ماتریس: Matrix([[1, 2], [3, 4]])\n\n"
-            "💡 مثال: (sqrt(16) + 2^3)*5"
+            "💡 هر خط یک دستور مستقل است\n"
+            "💡 برای توان از ** یا ^ استفاده کنید"
         )
         await update.message.reply_text(help_text)
 
@@ -98,27 +86,40 @@ class MathBot:
             return
 
         try:
-            result = self._process_expression(user_input)
-            response = f"✅ نتیجه:\n`{result}`"
+            # پردازش خط به خط
+            results = []
+            for line in user_input.split('\n'):
+                line = line.strip()
+                if line:  # فقط خطوط غیرخالی را پردازش کن
+                    result = self._process_single_expression(line)
+                    results.append(f"`{line}` = `{result}`")
+            
+            response = "✅ نتایج:\n" + "\n\n".join(results)
         except Exception as e:
             logger.error(f"Error processing {user_input}: {str(e)}")
             response = f"❌ خطا:\n`{str(e)}`"
         
         await update.message.reply_text(response, parse_mode="Markdown")
 
-    def _process_expression(self, expr: str) -> str:
-        """Core processing logic"""
+    def _process_single_expression(self, expr: str) -> str:
+        """Process a single mathematical expression"""
+        # جایگزینی ^ با ** برای پشتیبانی از هر دو فرمت توان
+        expr = expr.replace('^', '**')
+        
         parsed_expr = parse_expr(
             expr,
             local_dict=self.safe_dict,
             transformations=self.transformations
         )
         
-        if parsed_expr.is_Matrix:
+        if hasattr(parsed_expr, 'is_Matrix') and parsed_expr.is_Matrix:
             return pretty(parsed_expr, use_unicode=True)
             
-        if parsed_expr.is_number:
-            return f"N({parsed_expr}) = {parsed_expr.evalf(chop=True)}"
+        if hasattr(parsed_expr, 'is_number') and parsed_expr.is_number:
+            return str(parsed_expr.evalf(chop=True))
+            
+        if isinstance(parsed_expr, list):  # برای نتایج solve که لیست برمی‌گرداند
+            return pretty(parsed_expr, use_unicode=True)
             
         return pretty(parsed_expr.doit(), use_unicode=True)
 
@@ -126,4 +127,3 @@ if __name__ == "__main__":
     bot = MathBot("7868707058:AAFpFiUUMfbNekf4_Ct2cT_v3wfdu7lL-JQ")
     logger.info("Bot is running...")
     bot.app.run_polling()
-    
