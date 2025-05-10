@@ -7,7 +7,11 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from sympy import *
+from sympy import (
+    symbols, diff, integrate, solve, simplify, expand, factor, limit,
+    sin, cos, tan, sqrt, log, exp, pi, E, I, oo, Matrix, det, Sum,
+    Product, factorial, binomial, Abs, re, im, series, pretty
+)
 from sympy.parsing.sympy_parser import (
     parse_expr,
     standard_transformations,
@@ -35,14 +39,17 @@ class MathBot:
 
     def _create_safe_dict(self) -> dict:
         """Create a safe environment for mathematical operations"""
-        symbols = symbols('x y z')
-        constants = {
+        # تغییر نام متغیر برای جلوگیری از تداخل
+        sym_x, sym_y, sym_z = symbols('x y z')
+        
+        return {
+            'x': sym_x,
+            'y': sym_y,
+            'z': sym_z,
             'pi': pi,
             'E': E,
             'I': I,
-            'oo': oo
-        }
-        functions = {
+            'oo': oo,
             'diff': diff,
             'integrate': integrate,
             'solve': solve,
@@ -58,7 +65,6 @@ class MathBot:
             'factorial': factorial, 'binomial': binomial,
             'Abs': Abs, 're': re, 'im': im
         }
-        return {**dict(zip(['x', 'y', 'z'], symbols)), **constants, **functions}
 
     def _setup_handlers(self):
         """Setup Telegram handlers"""
@@ -120,3 +126,4 @@ if __name__ == "__main__":
     bot = MathBot("7868707058:AAFpFiUUMfbNekf4_Ct2cT_v3wfdu7lL-JQ")
     logger.info("Bot is running...")
     bot.app.run_polling()
+    
